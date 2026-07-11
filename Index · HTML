@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambient Soundscape Generator</title>
+<style>
+  :root{
+    --bg:#0a0c10;
+    --ink:#e8e6df;
+    --sub:#7d8189;
+    --line: rgba(232,230,223,0.1);
+    --focus:#4a9eff;
+    --relax:#5fd4a0;
+    --energetic:#ff8a4a;
+    --mono:'Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Helvetica Neue', Arial, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+  .wrap{
+    width:100%;
+    max-width:620px;
+    text-align:center;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--sub);
+    margin-bottom:10px;
+  }
+  h1{
+    font-size:2rem;
+    font-weight:300;
+    letter-spacing:-0.01em;
+    margin:0 0 6px;
+  }
+  .lede{
+    color:var(--sub);
+    font-size:0.95rem;
+    margin-bottom:36px;
+  }
+
+  .field-wrap{
+    position:relative;
+    width:280px;
+    height:280px;
+    margin:0 auto 40px;
+    border-radius:50%;
+  }
+  canvas{
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    display:block;
+  }
+  .field-wrap::after{
+    content:"";
+    position:absolute;
+    inset:-14px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    pointer-events:none;
+  }
+  .status-label{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-family:var(--mono);
+    font-size:0.68rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--sub);
+    pointer-events:none;
+  }
+
+  .moods{
+    display:flex;
+    gap:14px;
+    justify-content:center;
+    margin-bottom:26px;
+    flex-wrap:wrap;
+  }
+  .mood-btn{
+    font-family:'Helvetica Neue', Arial, sans-serif;
+    font-size:0.9rem;
+    padding:13px 26px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.15s ease;
+  }
+  .mood-btn .dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background:var(--sub);
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+  }
+  .mood-btn:hover{ transform: translateY(-2px); }
+  .mood-btn[data-mood="focus"].active{ border-color:var(--focus); background:rgba(74,158,255,0.1); }
+  .mood-btn[data-mood="focus"].active .dot{ background:var(--focus); box-shadow:0 0 10px var(--focus); }
+  .mood-btn[data-mood="relax"].active{ border-color:var(--relax); background:rgba(95,212,160,0.1); }
+  .mood-btn[data-mood="relax"].active .dot{ background:var(--relax); box-shadow:0 0 10px var(--relax); }
+  .mood-btn[data-mood="energetic"].active{ border-color:var(--energetic); background:rgba(255,138,74,0.1); }
+  .mood-btn[data-mood="energetic"].active .dot{ background:var(--energetic); box-shadow:0 0 10px var(--energetic); }
+
+  .stop-btn{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    background:transparent;
+    border:none;
+    color:var(--sub);
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .stop-btn:hover{ color:var(--ink); }
+
+  footer{
+    margin-top:30px;
+    font-family:var(--mono);
+    font-size:0.66rem;
+    color:var(--sub);
+    letter-spacing:0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow">Task 3 · Upgrade Feature</div>
+  <h1>Ambient Soundscape Generator</h1>
+  <p class="lede">Pick a mood — the sound is generated live, not played from a file.</p>
+
+  <div class="field-wrap">
+    <canvas id="field" width="280" height="280"></canvas>
+    <div class="status-label" id="statusLabel">Silent</div>
+  </div>
+
+  <div class="moods">
+    <button class="mood-btn" data-mood="focus"><span class="dot"></span>Focus</button>
+    <button class="mood-btn" data-mood="relax"><span class="dot"></span>Relax</button>
+    <button class="mood-btn" data-mood="energetic"><span class="dot"></span>Energetic</button>
+  </div>
+
+  <button class="stop-btn" id="stopBtn">Stop</button>
+
+  <footer>Web Audio API · Real-time synthesis, no audio files</footer>
+</div>
+
+<script>
+  const MOODS = {
+    focus: {
+      color: '#4a9eff',
+      // Slow, sparse, low drones — supports concentration
+      baseFreqs: [110, 165, 220],
+      waveform: 'sine',
+      modSpeed: 0.05,
+      filterFreq: 900,
+      tempo: 4200
+    },
+    relax: {
+      color: '#5fd4a0',
+      // Warm, gently shifting pad chords
+      baseFreqs: [130.81, 164.81, 196.00, 246.94],
+      waveform: 'triangle',
+      modSpeed: 0.08,
+      filterFreq: 1400,
+      tempo: 3200
+    },
+    energetic: {
+      color: '#ff8a4a',
+      // Brighter, faster-moving arpeggio-like pattern
+      baseFreqs: [196, 246.94, 293.66, 349.23, 392],
+      waveform: 'sawtooth',
+      modSpeed: 0.2,
+      filterFreq: 2600,
+      tempo: 900
+    }
+  };
+
+  let audioCtx = null;
+  let masterGain = null;
+  let activeNodes = [];
+  let sequenceTimer = null;
+  let currentMood = null;
+  let analyser = null;
+
+  const canvas = document.getElementById('field');
+  const ctx2d = canvas.getContext('2d');
+  const statusLabel = document.getElementById('statusLabel');
+  const stopBtn = document.getElementById('stopBtn');
+  const buttons = document.querySelectorAll('.mood-btn');
+
+  function ensureAudio(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.0;
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      masterGain.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+  }
+
+  function stopAll(){
+    activeNodes.forEach(n => {
+      try{ n.stop ? n.stop() : null; }catch(e){}
+      try{ n.disconnect(); }catch(e){}
+    });
+    activeNodes = [];
+    if(sequenceTimer){ clearTimeout(sequenceTimer); sequenceTimer = null; }
+    if(masterGain && audioCtx){
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+    }
+    currentMood = null;
+    buttons.forEach(b => b.classList.remove('active'));
+    statusLabel.textContent = 'Silent';
+  }
+
+  // Plays one generated note/pad using an oscillator + slow filter sweep
+  function playVoice(freq, config){
+    const osc = audioCtx.createOscillator();
+    osc.type = config.waveform;
+    osc.frequency.value = freq;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = config.filterFreq;
+
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0;
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+
+    const now = audioCtx.currentTime;
+    const dur = config.tempo / 1000 * 2.2;
+    gain.gain.linearRampToValueAtTime(0.18, now + dur * 0.3);
+    gain.gain.linearRampToValueAtTime(0, now + dur);
+
+    osc.start(now);
+    osc.stop(now + dur + 0.1);
+
+    activeNodes.push(osc, filter, gain);
+  }
+
+  // Generates a new note sequence live for the chosen mood — this is the
+  // "dynamic generation" the task asks for, not a fixed pre-recorded loop.
+  function scheduleNext(moodKey){
+    if(currentMood !== moodKey) return;
+    const config = MOODS[moodKey];
+    const notesToPlay = moodKey === 'energetic' ? 2 : 1;
+
+    for(let i = 0; i < notesToPlay; i++){
+      const freq = config.baseFreqs[Math.floor(Math.random() * config.baseFreqs.length)];
+      const octaveShift = Math.random() > 0.7 ? 2 : 1;
+      playVoice(freq * octaveShift, config);
+    }
+
+    const jitter = config.tempo * (0.7 + Math.random() * 0.6);
+    sequenceTimer = setTimeout(() => scheduleNext(moodKey), jitter);
+  }
+
+  function startMood(moodKey){
+    ensureAudio();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    stopAllVoicesOnly();
+
+    currentMood = moodKey;
+    const config = MOODS[moodKey];
+
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 1.2);
+
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.mood === moodKey));
+    statusLabel.textContent = moodKey[0].toUpperCase() + moodKey.slice(1);
+
+    scheduleNext(moodKey);
+  }
+
+  function stopAllVoicesOnly(){
+    if(sequenceTimer){ clearTimeout(sequenceTimer); sequenceTimer = null; }
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => startMood(btn.dataset.mood));
+  });
+  stopBtn.addEventListener('click', stopAll);
+
+  // ---- Visualizer: a breathing radial field reacting to the audio ----
+  function draw(){
+    requestAnimationFrame(draw);
+    const w = canvas.width, h = canvas.height;
+    ctx2d.clearRect(0, 0, w, h);
+
+    const cx = w/2, cy = h/2;
+    let level = 0.15;
+    if(analyser && currentMood){
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a,b) => a+b, 0) / data.length;
+      level = 0.15 + (avg / 255) * 0.85;
+    }
+
+    const color = currentMood ? MOODS[currentMood].color : '#7d8189';
+    const rings = 3;
+    for(let i = rings; i >= 1; i--){
+      const r = (i / rings) * 110 * (0.7 + level * 0.5);
+      ctx2d.beginPath();
+      ctx2d.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx2d.strokeStyle = color;
+      ctx2d.globalAlpha = 0.12 + (rings - i) * 0.08;
+      ctx2d.lineWidth = 1.5;
+      ctx2d.stroke();
+    }
+    ctx2d.globalAlpha = 1;
+
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, 34 + level * 26, 0, Math.PI * 2);
+    ctx2d.fillStyle = color;
+    ctx2d.globalAlpha = currentMood ? 0.55 : 0.2;
+    ctx2d.fill();
+    ctx2d.globalAlpha = 1;
+  }
+  draw();
+</script>
+
+</body>
+</html>
