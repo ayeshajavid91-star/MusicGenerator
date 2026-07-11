@@ -6,10 +6,12 @@
 <title>Ambient Soundscape Generator</title>
 <style>
   :root{
-    --bg:#0a0c10;
-    --ink:#e8e6df;
-    --sub:#7d8189;
-    --line: rgba(232,230,223,0.1);
+    --bg-1:#05070d;
+    --bg-2:#0d1128;
+    --card:#0f1330;
+    --line: rgba(255,255,255,0.09);
+    --ink:#eef0ff;
+    --sub:#8a8dbd;
     --focus:#4a9eff;
     --relax:#5fd4a0;
     --energetic:#ff8a4a;
@@ -20,45 +22,82 @@
   body{
     margin:0;
     font-family:'Helvetica Neue', Arial, sans-serif;
-    background:var(--bg);
     color:var(--ink);
     display:flex;
     align-items:center;
     justify-content:center;
     min-height:100vh;
-    padding:24px;
+    padding:32px 20px;
+    overflow-x:hidden;
+    background:
+      radial-gradient(900px 500px at 12% 0%, rgba(74,158,255,0.18), transparent 60%),
+      radial-gradient(800px 500px at 100% 20%, rgba(95,212,160,0.14), transparent 55%),
+      radial-gradient(700px 600px at 50% 110%, rgba(255,138,74,0.14), transparent 55%),
+      linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    background-attachment:fixed;
+    perspective:1800px;
+    position:relative;
   }
-  .wrap{
+
+  .particle{
+    position:fixed;
+    border-radius:50%;
+    background:#fff;
+    opacity:0.25;
+    pointer-events:none;
+    animation: drift linear infinite;
+  }
+  @keyframes drift{
+    from{ transform: translateY(0); }
+    to{ transform: translateY(-120vh); }
+  }
+
+  .stage{
+    position:relative;
+    z-index:1;
     width:100%;
-    max-width:620px;
+    max-width:680px;
     text-align:center;
+    animation: rise 0.9s cubic-bezier(.2,.9,.25,1) both;
+    transform-style:preserve-3d;
   }
+  @keyframes rise{
+    from{ opacity:0; transform: translateY(30px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+
   .eyebrow{
     font-family:var(--mono);
     font-size:0.72rem;
-    letter-spacing:0.22em;
+    letter-spacing:0.24em;
     text-transform:uppercase;
     color:var(--sub);
-    margin-bottom:10px;
+    margin-bottom:12px;
   }
   h1{
-    font-size:2rem;
+    font-size:2.3rem;
     font-weight:300;
     letter-spacing:-0.01em;
-    margin:0 0 6px;
+    margin:0 0 8px;
+    background: linear-gradient(90deg, #fff, #b9c2ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .lede{
     color:var(--sub);
     font-size:0.95rem;
-    margin-bottom:36px;
+    margin-bottom:44px;
   }
 
   .field-wrap{
     position:relative;
-    width:280px;
-    height:280px;
-    margin:0 auto 40px;
+    width:300px;
+    height:300px;
+    margin:0 auto 46px;
     border-radius:50%;
+    transform-style:preserve-3d;
+    transition: transform 0.3s ease;
   }
   canvas{
     width:100%;
@@ -69,90 +108,120 @@
   .field-wrap::after{
     content:"";
     position:absolute;
-    inset:-14px;
+    inset:-18px;
     border-radius:50%;
     border:1px solid var(--line);
     pointer-events:none;
+  }
+  .field-wrap::before{
+    content:"";
+    position:absolute;
+    inset:-34px;
+    border-radius:50%;
+    border:1px dashed rgba(255,255,255,0.06);
+    pointer-events:none;
+    animation: spin-ring 40s linear infinite;
+  }
+  @keyframes spin-ring{
+    from{ transform: rotate(0deg); }
+    to{ transform: rotate(360deg); }
   }
   .status-label{
     position:absolute;
     top:50%; left:50%;
     transform:translate(-50%,-50%);
     font-family:var(--mono);
-    font-size:0.68rem;
-    letter-spacing:0.15em;
+    font-size:0.7rem;
+    letter-spacing:0.18em;
     text-transform:uppercase;
     color:var(--sub);
     pointer-events:none;
+    transition: color 0.3s ease;
   }
 
   .moods{
     display:flex;
-    gap:14px;
+    gap:16px;
     justify-content:center;
-    margin-bottom:26px;
+    margin-bottom:30px;
     flex-wrap:wrap;
   }
   .mood-btn{
+    position:relative;
     font-family:'Helvetica Neue', Arial, sans-serif;
-    font-size:0.9rem;
-    padding:13px 26px;
+    font-size:0.92rem;
+    padding:14px 28px;
     border-radius:999px;
     border:1px solid var(--line);
-    background:transparent;
+    background: rgba(255,255,255,0.03);
     color:var(--ink);
     cursor:pointer;
     display:flex;
     align-items:center;
-    gap:9px;
-    transition: border-color 0.25s ease, background 0.25s ease, transform 0.15s ease;
+    gap:10px;
+    overflow:hidden;
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.2s cubic-bezier(.3,1.5,.4,1), box-shadow 0.25s ease;
   }
+  .mood-btn::before{
+    content:"";
+    position:absolute; inset:0;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.25), transparent);
+    transform: translateX(-120%);
+    transition: transform 0.6s ease;
+  }
+  .mood-btn:hover::before{ transform: translateX(120%); }
   .mood-btn .dot{
     width:8px; height:8px;
     border-radius:50%;
     background:var(--sub);
     transition: background 0.25s ease, box-shadow 0.25s ease;
   }
-  .mood-btn:hover{ transform: translateY(-2px); }
-  .mood-btn[data-mood="focus"].active{ border-color:var(--focus); background:rgba(74,158,255,0.1); }
-  .mood-btn[data-mood="focus"].active .dot{ background:var(--focus); box-shadow:0 0 10px var(--focus); }
-  .mood-btn[data-mood="relax"].active{ border-color:var(--relax); background:rgba(95,212,160,0.1); }
-  .mood-btn[data-mood="relax"].active .dot{ background:var(--relax); box-shadow:0 0 10px var(--relax); }
-  .mood-btn[data-mood="energetic"].active{ border-color:var(--energetic); background:rgba(255,138,74,0.1); }
-  .mood-btn[data-mood="energetic"].active .dot{ background:var(--energetic); box-shadow:0 0 10px var(--energetic); }
+  .mood-btn:hover{ transform: translateY(-3px); }
+
+  .mood-btn[data-mood="focus"].active{ border-color:var(--focus); background:rgba(74,158,255,0.12); box-shadow:0 12px 28px -14px rgba(74,158,255,0.7); }
+  .mood-btn[data-mood="focus"].active .dot{ background:var(--focus); box-shadow:0 0 12px var(--focus); }
+  .mood-btn[data-mood="relax"].active{ border-color:var(--relax); background:rgba(95,212,160,0.12); box-shadow:0 12px 28px -14px rgba(95,212,160,0.7); }
+  .mood-btn[data-mood="relax"].active .dot{ background:var(--relax); box-shadow:0 0 12px var(--relax); }
+  .mood-btn[data-mood="energetic"].active{ border-color:var(--energetic); background:rgba(255,138,74,0.12); box-shadow:0 12px 28px -14px rgba(255,138,74,0.7); }
+  .mood-btn[data-mood="energetic"].active .dot{ background:var(--energetic); box-shadow:0 0 12px var(--energetic); animation: pulse-dot 1s infinite; }
+  @keyframes pulse-dot{
+    0%,100%{ transform: scale(1); }
+    50%{ transform: scale(1.4); }
+  }
 
   .stop-btn{
     font-family:var(--mono);
-    font-size:0.72rem;
-    letter-spacing:0.1em;
+    font-size:0.74rem;
+    letter-spacing:0.12em;
     text-transform:uppercase;
     background:transparent;
     border:none;
     color:var(--sub);
     cursor:pointer;
     text-decoration:underline;
-    text-underline-offset:3px;
+    text-underline-offset:4px;
+    transition: color 0.2s ease, letter-spacing 0.2s ease;
   }
-  .stop-btn:hover{ color:var(--ink); }
+  .stop-btn:hover{ color:var(--ink); letter-spacing:0.18em; }
 
   footer{
-    margin-top:30px;
+    margin-top:36px;
     font-family:var(--mono);
     font-size:0.66rem;
     color:var(--sub);
-    letter-spacing:0.05em;
+    letter-spacing:0.06em;
   }
 </style>
 </head>
 <body>
 
-<div class="wrap">
+<div class="stage" id="stage">
   <div class="eyebrow">Task 3 · Upgrade Feature</div>
   <h1>Ambient Soundscape Generator</h1>
   <p class="lede">Pick a mood — the sound is generated live, not played from a file.</p>
 
-  <div class="field-wrap">
-    <canvas id="field" width="280" height="280"></canvas>
+  <div class="field-wrap" id="fieldWrap">
+    <canvas id="field" width="300" height="300"></canvas>
     <div class="status-label" id="statusLabel">Silent</div>
   </div>
 
@@ -168,31 +237,50 @@
 </div>
 
 <script>
+  const particleCount = 36;
+  for(let i = 0; i < particleCount; i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 2.5 + 0.5;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.top = Math.random() * 100 + 110 + 'vh';
+    p.style.animationDuration = (14 + Math.random() * 18) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    document.body.appendChild(p);
+  }
+
+  const stage = document.getElementById('stage');
+  if(window.matchMedia('(hover:hover)').matches){
+    document.addEventListener('mousemove', (e)=>{
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = (e.clientX - cx) / window.innerWidth;
+      const dy = (e.clientY - cy) / window.innerHeight;
+      stage.style.transform = `rotateY(${dx*2.5}deg) rotateX(${-dy*2.5}deg)`;
+    });
+  }
+
   const MOODS = {
     focus: {
       color: '#4a9eff',
-      // Slow, sparse, low drones — supports concentration
       baseFreqs: [110, 165, 220],
       waveform: 'sine',
-      modSpeed: 0.05,
       filterFreq: 900,
       tempo: 4200
     },
     relax: {
       color: '#5fd4a0',
-      // Warm, gently shifting pad chords
       baseFreqs: [130.81, 164.81, 196.00, 246.94],
       waveform: 'triangle',
-      modSpeed: 0.08,
       filterFreq: 1400,
       tempo: 3200
     },
     energetic: {
       color: '#ff8a4a',
-      // Brighter, faster-moving arpeggio-like pattern
       baseFreqs: [196, 246.94, 293.66, 349.23, 392],
       waveform: 'sawtooth',
-      modSpeed: 0.2,
       filterFreq: 2600,
       tempo: 900
     }
@@ -239,7 +327,6 @@
     statusLabel.textContent = 'Silent';
   }
 
-  // Plays one generated note/pad using an oscillator + slow filter sweep
   function playVoice(freq, config){
     const osc = audioCtx.createOscillator();
     osc.type = config.waveform;
@@ -267,8 +354,6 @@
     activeNodes.push(osc, filter, gain);
   }
 
-  // Generates a new note sequence live for the chosen mood — this is the
-  // "dynamic generation" the task asks for, not a fixed pre-recorded loop.
   function scheduleNext(moodKey){
     if(currentMood !== moodKey) return;
     const config = MOODS[moodKey];
@@ -287,11 +372,9 @@
   function startMood(moodKey){
     ensureAudio();
     if(audioCtx.state === 'suspended') audioCtx.resume();
-    stopAllVoicesOnly();
+    if(sequenceTimer){ clearTimeout(sequenceTimer); sequenceTimer = null; }
 
     currentMood = moodKey;
-    const config = MOODS[moodKey];
-
     masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
     masterGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 1.2);
 
@@ -301,16 +384,16 @@
     scheduleNext(moodKey);
   }
 
-  function stopAllVoicesOnly(){
-    if(sequenceTimer){ clearTimeout(sequenceTimer); sequenceTimer = null; }
-  }
-
   buttons.forEach(btn => {
     btn.addEventListener('click', () => startMood(btn.dataset.mood));
   });
   stopBtn.addEventListener('click', stopAll);
 
-  // ---- Visualizer: a breathing radial field reacting to the audio ----
+  const orbitDots = Array.from({length: 10}, (_, i) => ({
+    angle: (i / 10) * Math.PI * 2,
+    radiusOffset: Math.random() * 20
+  }));
+
   function draw(){
     requestAnimationFrame(draw);
     const w = canvas.width, h = canvas.height;
@@ -326,22 +409,42 @@
     }
 
     const color = currentMood ? MOODS[currentMood].color : '#7d8189';
+
     const rings = 3;
     for(let i = rings; i >= 1; i--){
-      const r = (i / rings) * 110 * (0.7 + level * 0.5);
+      const r = (i / rings) * 118 * (0.7 + level * 0.5);
       ctx2d.beginPath();
       ctx2d.arc(cx, cy, r, 0, Math.PI * 2);
       ctx2d.strokeStyle = color;
-      ctx2d.globalAlpha = 0.12 + (rings - i) * 0.08;
-      ctx2d.lineWidth = 1.5;
+      ctx2d.globalAlpha = 0.10 + (rings - i) * 0.08;
+      ctx2d.lineWidth = 1.4;
       ctx2d.stroke();
     }
     ctx2d.globalAlpha = 1;
 
+    if(currentMood){
+      const t = Date.now() / 1000;
+      orbitDots.forEach((d, i) => {
+        const angle = d.angle + t * (0.15 + i * 0.01);
+        const r = 100 + d.radiusOffset + Math.sin(t + i) * 8;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        ctx2d.beginPath();
+        ctx2d.arc(x, y, 1.6, 0, Math.PI * 2);
+        ctx2d.fillStyle = color;
+        ctx2d.globalAlpha = 0.5;
+        ctx2d.fill();
+      });
+      ctx2d.globalAlpha = 1;
+    }
+
     ctx2d.beginPath();
-    ctx2d.arc(cx, cy, 34 + level * 26, 0, Math.PI * 2);
-    ctx2d.fillStyle = color;
-    ctx2d.globalAlpha = currentMood ? 0.55 : 0.2;
+    ctx2d.arc(cx, cy, 36 + level * 28, 0, Math.PI * 2);
+    const grad = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, 36 + level * 28);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '00');
+    ctx2d.fillStyle = grad;
+    ctx2d.globalAlpha = currentMood ? 0.7 : 0.25;
     ctx2d.fill();
     ctx2d.globalAlpha = 1;
   }
